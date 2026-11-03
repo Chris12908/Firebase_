@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "807154890882",
+    "project_id": "campus-incident-chris-2026",
+    "storage_bucket": "campus-incident-chris-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:807154890882:android:1a47efdab718f6db181c9b",
+        "android_client_info": {
+          "package_name": "com.example.firebase_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNQY4YBSmuj_jOUx4C1SNoQgyTqKdu-1s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
