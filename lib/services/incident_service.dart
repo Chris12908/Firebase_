@@ -56,6 +56,31 @@ class IncidentService {
     });
   }
 
+  /// Student edits their own report (allowed by rules only while 'Submitted').
+  Future<void> updateDetails({
+    required String id,
+    required String title,
+    required String description,
+    required String category,
+    required String location,
+    File? newImage,
+    bool removePhoto = false,
+  }) async {
+    final data = <String, dynamic>{
+      'title': title,
+      'description': description,
+      'category': category,
+      'location': location,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (newImage != null) {
+      data['photoUrl'] = await _uploader.upload(newImage);
+    } else if (removePhoto) {
+      data['photoUrl'] = null;
+    }
+    await _col.doc(id).update(data);
+  }
+
   Future<void> updateStatus({
     required String id,
     required String status,

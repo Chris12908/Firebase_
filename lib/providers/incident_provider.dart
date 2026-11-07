@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
@@ -105,6 +105,40 @@ class IncidentProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Submit error: $e');
       error = 'Could not submit the report. Please try again.';
+      submitting = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateDetails({
+    required String id,
+    required String title,
+    required String description,
+    required String category,
+    required String location,
+    File? newImage,
+    bool removePhoto = false,
+  }) async {
+    submitting = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _service.updateDetails(
+        id: id,
+        title: title.trim(),
+        description: description.trim(),
+        category: category,
+        location: location.trim(),
+        newImage: newImage,
+        removePhoto: removePhoto,
+      );
+      submitting = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Edit error: $e');
+      error = 'Could not save changes. Please try again.';
       submitting = false;
       notifyListeners();
       return false;
