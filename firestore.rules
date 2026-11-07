@@ -1,4 +1,4 @@
-rules_version = '2';
+﻿rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -16,6 +16,9 @@ service cloud.firestore {
     function isStaff() {
       return verified() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+    }
+    function validPhoto(url) {
+      return url == null || url.matches('https://res\\.cloudinary\\.com/.*');
     }
 
     // ---------- users ----------
@@ -49,17 +52,29 @@ service cloud.firestore {
         && request.resource.data.category in
              ['Facilities', 'Water', 'Electricity', 'Furniture', 'Sanitation', 'Safety']
         && request.resource.data.description.size() >= 10
+        && validPhoto(request.resource.data.photoUrl)
         && request.resource.data.keys().hasOnly([
              'title', 'description', 'category', 'location', 'status', 'photoUrl',
              'reporterId', 'reporterName', 'anonymous',
              'createdAt', 'updatedAt', 'statusHistory']);
 
-      // ONLY staff can update, and ONLY the status-related fields
+      // ONLY staff can update status, and ONLY the status-related fields
       allow update: if isStaff()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'updatedAt', 'statusHistory'])
         && request.resource.data.status in
              ['Submitted', 'Under Review', 'In Progress', 'Resolved'];
+
+      // owners can edit their own report's content while it is still 'Submitted'
+      allow update: if verified() && aluEmail()
+        && resource.data.reporterId == request.auth.uid
+        && resource.data.status == 'Submitted'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'description', 'category', 'location', 'photoUrl', 'updatedAt'])
+        && request.resource.data.category in
+             ['Facilities', 'Water', 'Electricity', 'Furniture', 'Sanitation', 'Safety']
+        && request.resource.data.description.size() >= 10
+        && validPhoto(request.resource.data.photoUrl);
 
       // owners can delete their own report only while it is still 'Submitted'
       allow delete: if verified()
