@@ -1,8 +1,6 @@
-class AppConstants {
+﻿class AppConstants {
   // Check which domains your school actually uses and edit this list
   static const allowedDomains = ['alustudent.com', 'alueducation.com'];
-    /// Set to true once Firebase Storage is enabled
-  static const photoUploadEnabled = false;
 
   static const categories = [
     'Facilities',
@@ -19,4 +17,10 @@ class AppConstants {
     'In Progress',
     'Resolved',
   ];
+
+  static const photoUploadEnabled = true;
+
+  // Cloudinary (free image hosting, unsigned uploads)
+  static const cloudinaryCloudName = 'ljvhmiyp';
+  static const cloudinaryPreset = 'campus_unsigned';
 }
