@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
 
@@ -44,7 +44,10 @@ class AuthService {
   Future<void> resendVerification() async =>
       _auth.currentUser?.sendEmailVerification();
 
-  Future<void> reloadUser() async => _auth.currentUser?.reload();
+  Future<void> reloadUser() async {
+    await _auth.currentUser?.reload();
+    await _auth.currentUser?.getIdToken(true);
+  }
 
   Future<AppUser?> fetchUser(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();

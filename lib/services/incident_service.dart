@@ -1,11 +1,14 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../models/incident.dart';
+import 'image_upload_service.dart';
 
 class IncidentService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final ImageUploadService _uploader;
+
+  IncidentService({ImageUploadService? uploader})
+      : _uploader = uploader ?? ImageUploadService();
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('incidents');
@@ -25,15 +28,10 @@ class IncidentService {
     required bool anonymous,
     File? image,
   }) async {
-    final ref = _col.doc(); // generate the id first so the photo can use it
-    String? photoUrl;
+    final ref = _col.doc();
 
-    if (image != null) {
-      final storageRef =
-          _storage.ref('incidents/$reporterId/${ref.id}.jpg');
-      await storageRef.putFile(image);
-      photoUrl = await storageRef.getDownloadURL();
-    }
+    // Upload first; if it fails, no half-created report is left behind
+    final String? photoUrl = image == null ? null : await _uploader.upload(image);
 
     await ref.set({
       'title': title,
@@ -72,14 +70,7 @@ class IncidentService {
     });
   }
 
-  Future<void> delete(Incident incident) async {
-    await _col.doc(incident.id).delete();
-    if (incident.photoUrl != null) {
-      try {
-        await _storage.refFromURL(incident.photoUrl!).delete();
-      } catch (_) {
-        // photo already gone, ignore
-      }
-    }
-  }
+  /// Deletes the report document. The image stays on Cloudinary, because
+  /// deleting there needs a signed request that must not live in the app.
+  Future<void> delete(Incident incident) => _col.doc(incident.id).delete();
 }
