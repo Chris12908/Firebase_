@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -9,6 +9,7 @@ import '../utils/constants.dart';
 import '../widgets/info_card.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/status_timeline.dart';
+import 'student/submit_report_screen.dart';
 
 void openIncident(BuildContext context, String id) {
   Navigator.push(context,
@@ -81,11 +82,22 @@ class IncidentDetailScreen extends StatelessWidget {
 
     final isOwner = incident.reporterId == auth.appUser?.uid;
     final canDelete = isOwner && incident.status == 'Submitted';
+    final canEdit = canDelete; // same condition: owner, still 'Submitted'
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Incident Details'),
         actions: [
+          if (canEdit)
+            IconButton(
+              tooltip: 'Edit report',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => SubmitReportScreen(existing: incident)),
+              ),
+            ),
           if (canDelete)
             IconButton(
                 tooltip: 'Delete report',

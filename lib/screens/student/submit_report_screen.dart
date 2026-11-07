@@ -1,7 +1,8 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../models/incident.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/incident_provider.dart';
 import '../../utils/app_theme.dart';
@@ -11,7 +12,11 @@ import '../../utils/validators.dart';
 
 class SubmitReportScreen extends StatefulWidget {
   final String? initialCategory;
-  const SubmitReportScreen({super.key, this.initialCategory});
+
+  /// When set, the screen edits this report instead of creating a new one.
+  final Incident? existing;
+
+  const SubmitReportScreen({super.key, this.initialCategory, this.existing});
 
   @override
   State<SubmitReportScreen> createState() => _SubmitReportScreenState();
@@ -19,18 +24,25 @@ class SubmitReportScreen extends StatefulWidget {
 
 class _SubmitReportScreenState extends State<SubmitReportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _description = TextEditingController();
-  final _location = TextEditingController();
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _location;
   String? _category;
   bool _categoryError = false;
   bool _anonymous = false;
   File? _image;
+  bool _keepExistingPhoto = true;
+
+  bool get _editing => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
-    _category = widget.initialCategory;
+    final e = widget.existing;
+    _title = TextEditingController(text: e?.title ?? '');
+    _description = TextEditingController(text: e?.description ?? '');
+    _location = TextEditingController(text: e?.location ?? '');
+    _category = e?.category ?? widget.initialCategory;
   }
 
   @override
@@ -78,23 +90,40 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
     setState(() => _categoryError = _category == null);
     if (!formOk || _category == null) return;
 
-    final user = context.read<AuthProvider>().appUser;
-    if (user == null) return;
     final provider = context.read<IncidentProvider>();
+    final bool ok;
 
-    final ok = await provider.submit(
-      user: user,
-      title: _title.text,
-      description: _description.text,
-      category: _category!,
-      location: _location.text,
-      anonymous: _anonymous,
-      image: _image,
-    );
+    if (_editing) {
+      final existing = widget.existing!;
+      ok = await provider.updateDetails(
+        id: existing.id,
+        title: _title.text,
+        description: _description.text,
+        category: _category!,
+        location: _location.text,
+        newImage: _image,
+        removePhoto:
+            existing.photoUrl != null && !_keepExistingPhoto && _image == null,
+      );
+    } else {
+      final user = context.read<AuthProvider>().appUser;
+      if (user == null) return;
+      ok = await provider.submit(
+        user: user,
+        title: _title.text,
+        description: _description.text,
+        category: _category!,
+        location: _location.text,
+        anonymous: _anonymous,
+        image: _image,
+      );
+    }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            ok ? 'Report submitted' : provider.error ?? 'Submission failed')));
+        content: Text(ok
+            ? (_editing ? 'Report updated' : 'Report submitted')
+            : provider.error ?? 'Something went wrong')));
     if (ok) Navigator.pop(context);
   }
 
@@ -137,6 +166,19 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
     );
   }
 
+  Widget _removable(Widget image, VoidCallback onRemove) => Stack(
+        alignment: Alignment.topRight,
+        children: [
+          ClipRRect(borderRadius: BorderRadius.circular(14), child: image),
+          IconButton(
+            style: IconButton.styleFrom(
+                backgroundColor: Colors.black54, foregroundColor: Colors.white),
+            icon: const Icon(Icons.close),
+            onPressed: onRemove,
+          ),
+        ],
+      );
+
   Widget _photoSection() {
     if (!AppConstants.photoUploadEnabled) {
       return Container(
@@ -155,21 +197,22 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
       );
     }
     if (_image != null) {
-      return Stack(
-        alignment: Alignment.topRight,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.file(_image!,
-                height: 180, width: double.infinity, fit: BoxFit.cover),
-          ),
-          IconButton(
-            style: IconButton.styleFrom(
-                backgroundColor: Colors.black54, foregroundColor: Colors.white),
-            icon: const Icon(Icons.close),
-            onPressed: () => setState(() => _image = null),
-          ),
-        ],
+      return _removable(
+        Image.file(_image!,
+            height: 180, width: double.infinity, fit: BoxFit.cover),
+        () => setState(() => _image = null),
+      );
+    }
+    final existingUrl = widget.existing?.photoUrl;
+    if (existingUrl != null && _keepExistingPhoto) {
+      return _removable(
+        Image.network(existingUrl,
+            height: 180,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const SizedBox(
+                height: 120, child: Center(child: Icon(Icons.broken_image)))),
+        () => setState(() => _keepExistingPhoto = false),
       );
     }
     return InkWell(
@@ -189,8 +232,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
             Icon(Icons.add_photo_alternate_outlined,
                 size: 30, color: AppColors.primary),
             SizedBox(height: 6),
-            Text('Tap to add photos',
-                style: TextStyle(color: AppColors.muted)),
+            Text('Tap to add photos', style: TextStyle(color: AppColors.muted)),
           ],
         ),
       ),
@@ -201,7 +243,8 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
   Widget build(BuildContext context) {
     final submitting = context.watch<IncidentProvider>().submitting;
     return Scaffold(
-      appBar: AppBar(title: const Text('Report an Incident')),
+      appBar: AppBar(
+          title: Text(_editing ? 'Edit Report' : 'Report an Incident')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         child: Form(
@@ -258,21 +301,23 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
               ),
               _label('Add a photo (optional)'),
               _photoSection(),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
+              if (!_editing) ...[
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SwitchListTile(
+                    title: const Text('Report anonymously'),
+                    subtitle:
+                        const Text('Your name will be hidden from other users'),
+                    value: _anonymous,
+                    onChanged: (v) => setState(() => _anonymous = v),
+                  ),
                 ),
-                child: SwitchListTile(
-                  title: const Text('Report anonymously'),
-                  subtitle:
-                      const Text('Your name will be hidden from other users'),
-                  value: _anonymous,
-                  onChanged: (v) => setState(() => _anonymous = v),
-                ),
-              ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -284,7 +329,7 @@ class _SubmitReportScreenState extends State<SubmitReportScreen> {
                           width: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Submit Report'),
+                      : Text(_editing ? 'Save changes' : 'Submit Report'),
                 ),
               ),
             ],
